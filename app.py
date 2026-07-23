@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from chatbot import ai_chatbot
 from db_connect import get_connection
 
 
@@ -17,7 +18,6 @@ st.title("🚀 Startup Funding Analysis Dashboard")
 # ---------------- DATABASE ----------------
 
 conn = get_connection()
-
 df = pd.read_sql(
     "SELECT * FROM public.startup_funding_data;",
     conn
@@ -216,54 +216,52 @@ if "Startup" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 # ---------------- USER CUSTOM ANALYSIS ----------------
 
+# ---------------- USER CUSTOM ANALYSIS ----------------
+
 st.header("📊 Custom Analysis")
 
 
-# Separate columns
-
 categorical_columns = filtered_df.select_dtypes(
-    include="object"
+    include=["object"]
 ).columns.tolist()
 
 
 numeric_columns = filtered_df.select_dtypes(
-    include="number"
+    include=["int64","float64"]
 ).columns.tolist()
 
 
 
-if categorical_columns and numeric_columns:
+if len(categorical_columns) > 0 and len(numeric_columns) > 0:
+
 
     x_axis = st.selectbox(
-        "Choose Category Column",
+        "Select Category",
         categorical_columns
     )
 
 
     y_axis = st.selectbox(
-        "Choose Value Column",
+        "Select Value",
         numeric_columns
     )
 
 
     chart_type = st.selectbox(
-        "Choose Chart Type",
+        "Chart Type",
         [
-            "Bar Chart",
-            "Line Chart",
-            "Pie Chart",
-            "Scatter Plot"
+            "Bar",
+            "Line",
+            "Pie"
         ]
     )
 
 
-    # Aggregate data
-
-    chart_data = (
+    chart_df = (
         filtered_df
-        .groupby(x_axis, as_index=False)
-        [y_axis]
+        .groupby(x_axis)[y_axis]
         .sum()
+        .reset_index()
         .sort_values(
             y_axis,
             ascending=False
@@ -272,62 +270,43 @@ if categorical_columns and numeric_columns:
     )
 
 
+    if chart_type == "Bar":
 
-    # BAR CHART
-
-    if chart_type == "Bar Chart":
         fig = px.bar(
-            chart_data,
+            chart_df,
             x=x_axis,
             y=y_axis,
-            title=f"{y_axis} by {x_axis}",
-            text=y_axis
+            color=x_axis,
+            text=y_axis,
+            title=f"{y_axis} by {x_axis}"
         )
-    # LINE CHART
 
-    elif chart_type == "Line Chart":
+
+    elif chart_type == "Line":
 
         fig = px.line(
-            chart_data,
+            chart_df,
             x=x_axis,
             y=y_axis,
-            title=f"{y_axis} Trend by {x_axis}",
-      )
-    # LINE CHART
-
-    elif chart_type == "Line Chart":
-
-        fig = px.line(
-            chart_data,
-            x=x_axis,
-            y=y_axis,
-            title=f"{y_axis} Trend by {x_axis}",
-            markers=True
+            markers=True,
+            title=f"{y_axis} Trend"
         )
 
-
-    # PIE CHART
-
-    elif chart_type == "Pie Chart":
-
-        fig = px.pie(
-            chart_data,
-            names=x_axis,
-            values=y_axis,
-            title=f"{y_axis} Distribution by {x_axis}"
-        )
-
-
-    # SCATTER
 
     else:
 
-        fig = px.scatter(
-            filtered_df,
-            x=x_axis,
-            y=y_axis,
-            title=f"{x_axis} vs {y_axis}"
+        fig = px.pie(
+            chart_df,
+            names=x_axis,
+            values=y_axis,
+            title=f"{y_axis} Distribution"
         )
+
+
+    fig.update_layout(
+        height=600,
+        xaxis_tickangle=-45
+    )
 
 
     st.plotly_chart(
@@ -336,15 +315,12 @@ if categorical_columns and numeric_columns:
     )
 
 
-
 else:
 
-    st.warning(
-        "Dataset must contain both categorical and numeric columns for custom analysis."
+    st.error(
+        "No categorical or numeric columns found"
     )
-
 # ---------------- DOWNLOAD ----------------
-
 
 csv = filtered_df.to_csv(index=False)
 
@@ -354,3 +330,20 @@ st.download_button(
     "startup_funding_analysis.csv",
     "text/csv"
 )
+
+# ---------------- AI CHATBOT ----------------
+
+st.subheader("🤖 AI Startup Funding Assistant")
+
+question = st.text_input(
+    "Ask your question"
+)
+
+if question:
+
+    answer = ai_chatbot(
+        filtered_df,
+        question
+    )
+
+    st.write(answer)
