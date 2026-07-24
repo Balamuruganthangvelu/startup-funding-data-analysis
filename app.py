@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from chatbot import ai_chatbot
+from chatbot import chatbot
 from db_connect import get_connection
 
 
@@ -15,18 +15,67 @@ st.set_page_config(
 st.title("🚀 Startup Funding Analysis Dashboard")
 
 
-# ---------------- DATABASE ----------------
+# ---------------- DATA SOURCE ----------------
 
-conn = get_connection()
-df = pd.read_sql(
-    "SELECT * FROM public.startup_funding_data;",
-    conn
+st.sidebar.header("📂 Dataset Source")
+
+
+
+source = st.sidebar.radio(
+    "Choose Dataset",
+    [
+        "Upload CSV",
+        "PostgreSQL"
+    ]
 )
 
-conn.close()
+
+if source == "Upload CSV":
+
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload CSV File",
+        type=["csv"]
+    )
 
 
-# Remove duplicate column names
+    if uploaded_file:
+
+        df = pd.read_csv(
+            uploaded_file
+        )
+
+    else:
+
+        st.warning(
+            "Please upload a CSV file"
+        )
+
+        st.stop()
+
+
+
+else:
+
+    conn = get_connection()
+
+    df = pd.read_sql(
+        "SELECT * FROM public.startup_funding_data;",
+        conn
+    )
+
+    conn.close()
+
+
+
+# Remove duplicate columns
+
+df = df.loc[
+    :,
+    ~df.columns.duplicated()
+]
+
+
+# Remove duplicate columns
 df = df.loc[:, ~df.columns.duplicated()]
 
 
@@ -36,14 +85,12 @@ with st.expander("📋 View Dataset"):
     st.dataframe(df)
 
 
+# ---------------- FILTERS ----------------
+
 st.sidebar.header("🔎 Filters")
 
-
-# Keep original data
 filtered_df = df.copy()
 
-
-# ---------------- USER FILTER ----------------
 
 filter_column = st.sidebar.selectbox(
     "Select Filter Column",
@@ -63,8 +110,8 @@ if filter_values:
     ]
 
 
-# ---------------- KPI ----------------
 
+# ---------------- KPI ----------------
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -100,8 +147,8 @@ with col4:
         )
 
 
-# ---------------- INDUSTRY ANALYSIS ----------------
 
+# ---------------- INDUSTRY ANALYSIS ----------------
 
 if "Industry" in filtered_df.columns and "Amount" in filtered_df.columns:
 
@@ -112,7 +159,7 @@ if "Industry" in filtered_df.columns and "Amount" in filtered_df.columns:
         filtered_df
         .groupby("Industry", as_index=False)
         .agg(
-            Total_Funding=("Amount", "sum")
+            Total_Funding=("Amount","sum")
         )
         .sort_values(
             "Total_Funding",
@@ -123,12 +170,12 @@ if "Industry" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 
     fig = px.bar(
-    industry_data,
-    x="Industry",
-    y="Total_Funding",
-    title="Top Industries",
-    color="Industry"
-   )
+        industry_data,
+        x="Industry",
+        y="Total_Funding",
+        color="Industry",
+        title="Top Industries"
+    )
 
 
     st.plotly_chart(
@@ -140,7 +187,6 @@ if "Industry" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 # ---------------- CITY ANALYSIS ----------------
 
-
 if "City" in filtered_df.columns and "Amount" in filtered_df.columns:
 
     st.subheader("🏙️ Funding by City")
@@ -150,7 +196,7 @@ if "City" in filtered_df.columns and "Amount" in filtered_df.columns:
         filtered_df
         .groupby("City", as_index=False)
         .agg(
-            Total_Funding=("Amount", "sum")
+            Total_Funding=("Amount","sum")
         )
         .sort_values(
             "Total_Funding",
@@ -161,11 +207,11 @@ if "City" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 
     fig = px.bar(
-    city_data,
-    x="City",
-    y="Total_Funding",
-    title="Top Cities",
-    color="City"
+        city_data,
+        x="City",
+        y="Total_Funding",
+        color="City",
+        title="Top Cities"
     )
 
 
@@ -178,9 +224,7 @@ if "City" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 # ---------------- STARTUP ANALYSIS ----------------
 
-
 if "Startup" in filtered_df.columns and "Amount" in filtered_df.columns:
-
 
     st.subheader("🏆 Top Funded Startups")
 
@@ -189,7 +233,7 @@ if "Startup" in filtered_df.columns and "Amount" in filtered_df.columns:
         filtered_df
         .groupby("Startup", as_index=False)
         .agg(
-            Total_Funding=("Amount", "sum")
+            Total_Funding=("Amount","sum")
         )
         .sort_values(
             "Total_Funding",
@@ -200,12 +244,11 @@ if "Startup" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 
     fig = px.pie(
-    startup_data,
-    names="Startup",
-    values="Total_Funding",
-    color="Startup",
-    title="Top Funded Startups"
-)
+        startup_data,
+        names="Startup",
+        values="Total_Funding",
+        title="Top Funded Startups"
+    )
 
 
     st.plotly_chart(
@@ -214,25 +257,30 @@ if "Startup" in filtered_df.columns and "Amount" in filtered_df.columns:
     )
 
 
-# ---------------- USER CUSTOM ANALYSIS ----------------
 
-# ---------------- USER CUSTOM ANALYSIS ----------------
+# ---------------- CUSTOM ANALYSIS ----------------
 
 st.header("📊 Custom Analysis")
 
 
-categorical_columns = filtered_df.select_dtypes(
-    include=["object"]
-).columns.tolist()
+categorical_columns = (
+    filtered_df
+    .select_dtypes(include=["object"])
+    .columns
+    .tolist()
+)
 
 
-numeric_columns = filtered_df.select_dtypes(
-    include=["int64","float64"]
-).columns.tolist()
+numeric_columns = (
+    filtered_df
+    .select_dtypes(include=["int64","float64"])
+    .columns
+    .tolist()
+)
 
 
 
-if len(categorical_columns) > 0 and len(numeric_columns) > 0:
+if categorical_columns and numeric_columns:
 
 
     x_axis = st.selectbox(
@@ -276,9 +324,7 @@ if len(categorical_columns) > 0 and len(numeric_columns) > 0:
             chart_df,
             x=x_axis,
             y=y_axis,
-            color=x_axis,
-            text=y_axis,
-            title=f"{y_axis} by {x_axis}"
+            color=x_axis
         )
 
 
@@ -288,8 +334,7 @@ if len(categorical_columns) > 0 and len(numeric_columns) > 0:
             chart_df,
             x=x_axis,
             y=y_axis,
-            markers=True,
-            title=f"{y_axis} Trend"
+            markers=True
         )
 
 
@@ -298,15 +343,8 @@ if len(categorical_columns) > 0 and len(numeric_columns) > 0:
         fig = px.pie(
             chart_df,
             names=x_axis,
-            values=y_axis,
-            title=f"{y_axis} Distribution"
+            values=y_axis
         )
-
-
-    fig.update_layout(
-        height=600,
-        xaxis_tickangle=-45
-    )
 
 
     st.plotly_chart(
@@ -320,9 +358,13 @@ else:
     st.error(
         "No categorical or numeric columns found"
     )
+
+
+
 # ---------------- DOWNLOAD ----------------
 
 csv = filtered_df.to_csv(index=False)
+
 
 st.download_button(
     "⬇️ Download Filtered Data",
@@ -331,19 +373,46 @@ st.download_button(
     "text/csv"
 )
 
+
+
 # ---------------- AI CHATBOT ----------------
 
-st.subheader("🤖 AI Startup Funding Assistant")
-
-question = st.text_input(
-    "Ask your question"
+st.header("🤖 AI Startup Funding Assistant")
+st.info(
+    f"AI is analyzing {source} data"
 )
 
-if question:
 
-    answer = ai_chatbot(
-        filtered_df,
-        question
-    )
+question = st.text_input(
+    "Ask anything about the startup funding data..."
+)
 
-    st.write(answer)
+
+if st.button("Ask AI"):
+
+    if question.strip() == "":
+
+        st.warning(
+            "Please enter a question."
+        )
+
+    else:
+
+        with st.spinner(
+            "Analyzing data..."
+        ):
+
+            answer = chatbot(
+                filtered_df,
+                question
+            )
+
+
+        st.success(
+            "Analysis Complete"
+        )
+
+
+        st.markdown(
+            answer
+        )

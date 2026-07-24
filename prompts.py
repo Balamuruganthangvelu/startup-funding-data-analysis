@@ -1,159 +1,208 @@
-import pandas as pd
+INTENT_PROMPT = """
+
+You are an expert Data Analyst.
+
+Convert the user's question into a JSON Pandas execution plan.
+
+Dataset Schema:
+
+{schema}
 
 
-class Executor:
+User Question:
 
-    def __init__(self, df):
-        self.df = df.copy()
+{question}
 
+Supported operations:
 
-    def execute(self, plan):
+1. groupby
+2. summary
+3. filter
+4. top
+5. count
+6. unique
+7. columns
+8. rank
 
-        operation = plan.get("operation")
+Rules:
 
-        try:
-
-            if operation == "groupby":
-
-                return self.groupby_operation(plan)
-
-            elif operation == "summary":
-
-                return self.summary_operation(plan)
-
-            elif operation == "filter":
-
-                return self.filter_operation(plan)
-
-            elif operation == "top":
-
-                return self.top_operation(plan)
-
-            elif operation == "count":
-
-                return self.count_operation(plan)
-
-            elif operation == "unique":
-
-                return self.unique_operation(plan)
-
-            else:
-
-                return {
-                    "success": False,
-                    "message": f"Unsupported operation: {operation}"
-                }
-
-        except Exception as e:
-
-            return {
-                "success": False,
-                "message": str(e)
-            }
+- Return ONLY valid JSON.
+- No explanation.
+- Use exact column names.
 
 
-    # ---------------------------------------------------
-
-    def groupby_operation(self, plan):
-
-        group_column = plan["group_column"]
-        value_column = plan["value_column"]
-        aggregation = plan.get("aggregation", "sum")
-        top = plan.get("top", 10)
-
-        result = (
-            self.df
-            .groupby(group_column)[value_column]
-            .agg(aggregation)
-            .sort_values(ascending=False)
-            .head(top)
-            .reset_index()
-        )
-
-        return {
-            "success": True,
-            "result": result
-        }
+Examples:
 
 
-    # ---------------------------------------------------
-
-    def summary_operation(self, plan):
-
-        column = plan["column"]
-
-        result = {
-            "count": self.df[column].count(),
-            "mean": self.df[column].mean(),
-            "min": self.df[column].min(),
-            "max": self.df[column].max(),
-            "sum": self.df[column].sum()
-        }
-
-        return {
-            "success": True,
-            "result": result
-        }
+Question:
+Which city received highest funding?
 
 
-    # ---------------------------------------------------
+Output:
 
-    def filter_operation(self, plan):
-
-        column = plan["column"]
-        value = plan["value"]
-
-        result = self.df[
-            self.df[column] == value
-        ]
-
-        return {
-            "success": True,
-            "result": result
-        }
+{{
+    "operation":"groupby",
+    "group_column":"City",
+    "value_column":"InvestmentAmount_USD",
+    "aggregation":"sum",
+    "top":10
+}}
 
 
-    # ---------------------------------------------------
-
-    def top_operation(self, plan):
-
-        column = plan["column"]
-        top = plan.get("top", 10)
-
-        result = (
-            self.df
-            .sort_values(
-                by=column,
-                ascending=False
-            )
-            .head(top)
-        )
-
-        return {
-            "success": True,
-            "result": result
-        }
+Question:
+What is average funding?
 
 
-    # ---------------------------------------------------
+Output:
 
-    def count_operation(self, plan):
-
-        return {
-            "success": True,
-            "result": len(self.df)
-        }
+{{
+    "operation":"summary",
+    "column":"InvestmentAmount_USD"
+}}
 
 
-    # ---------------------------------------------------
+Question:
+How many startups are there?
 
-    def unique_operation(self, plan):
 
-        column = plan["column"]
+Output:
 
-        result = self.df[column].unique().tolist()
+{{
+    "operation":"count"
+}}
 
-        return {
-            "success": True,
-            "result": result
-        }
+
+Question:
+Show startups in Delhi
+
+
+Output:
+
+{{
+    "operation":"filter",
+    "column":"City",
+    "value":"Delhi"
+}}
+
+
+Question:
+Top 5 funded startups
+
+
+Output:
+
+{{
+    "operation":"top",
+    "column":"InvestmentAmount_USD",
+    "top":5
+}}
+
+Question:
+Which startup has highest funding?
+
+
+Output:
+
+{{
+    "operation":"rank",
+    "column":"InvestmentAmount_USD",
+    "order":"highest",
+    "top":10
+}}
+
+
+Question:
+Which startup has lowest funding?
+
+
+Output:
+
+{{
+    "operation":"rank",
+    "column":"InvestmentAmount_USD",
+    "order":"lowest",
+    "top":10
+}}
+
+
+Question:
+Show top 5 startups by funding.
+
+
+Output:
+
+{{
+    "operation":"rank",
+    "column":"InvestmentAmount_USD",
+    "order":"highest",
+    "top":5
+}}
+
+
+Question:
+Show startups with low funding.
+
+
+Output:
+
+{{
+    "operation":"rank",
+    "column":"InvestmentAmount_USD",
+    "order":"lowest",
+    "top":10
+}}
+IMPORTANT RULES
+
+You must answer ONLY for the current user question.
+
+Return EXACTLY ONE JSON object.
+
+Do NOT answer the example questions.
+
+Do NOT explain.
+
+Do NOT write any text before or after the JSON.
+
+Output must start with {{
+
+Output must end with }}
+
+If the question cannot be answered using supported operations, return:
+
+{{
+    "operation":"unsupported"
+}}
+"""
+#----------------Explanation Prompt----------------
+EXPLANATION_PROMPT = """
+
+You are a data analyst assistant.
+
+User Question:
+{question}
+
+
+Calculated Result:
+{result}
+
+
+Instructions:
+
+- Give only the final answer.
+- Do not show JSON.
+- Do not show code.
+- Do not show execution plans.
+- Do not mention Pandas.
+- Explain the result in simple English.
+- Include numbers and names from the result
+You are answering questions ONLY from the uploaded dataset
+
+If the execution result does not contain enough information to answer the user's question, reply:
+
+"I couldn't find an answer to that question in the uploaded dataset."
+
+Do not use outside knowledge.
+Do not guess.
+
+
+"""
