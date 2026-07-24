@@ -1,63 +1,315 @@
+import os
+import json
 import ollama
 
-def ai_chatbot(df, question):
+from groq import Groq
+from dotenv import load_dotenv
 
-    # Dataset Summary
-    summary = f"""
-Total Records: {len(df)}
+from prompts import INTENT_PROMPT
+from executor import execute_plan
 
-Columns:
-{', '.join(df.columns)}
 
-Numeric Summary:
-{df.describe(include='number').to_string()}
+load_dotenv()
 
-Categorical Summary:
-{df.describe(include='object').to_string()}
 
-Top 20 Sample Rows:
-{df.head(20).to_string(index=False)}
-"""
+AI_PROVIDER = os.getenv(
+    "AI_PROVIDER",
+    "ollama"
+)
 
-    prompt = f"""
-You are an expert Startup Funding Data Analyst.
 
-Below is information about a startup funding dataset.
+groq_client = Groq(
+    api_key=os.getenv("GROQ_API_KEY")
+)
 
-{summary}
 
-User Question:
-{question}
 
-Instructions:
-- Answer only using the dataset information.
-- Give numerical insights whenever possible.
-- Keep the answer clear and professional.
-- If the dataset does not contain the requested information, say so.
-"""
+# ---------------- SCHEMA CREATION ----------------
 
-    # Show prompt in terminal
-    print("\n" + "=" * 80)
-    print("PROMPT SENT TO OLLAMA")
-    print("=" * 80)
-    print(prompt)
+def get_schema(df):
 
-    response = ollama.chat(
-        model="llama3.1:8b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
+    schema = {}
+
+    for col in df.columns:
+
+        samples = (
+            df[col]
+            .dropna()
+            .head(3)
+            .tolist()
+        )
+
+
+        samples = [
+            str(value)
+            for value in samples
         ]
+
+
+        schema[col] = {
+
+            "dtype": str(df[col].dtype),
+
+            "sample_values": samples
+
+        }
+
+
+    return schema
+
+
+
+
+# ---------------- ASK AI ----------------
+
+def ask_ai(prompt):
+
+
+    if AI_PROVIDER == "ollama":
+
+
+        response = ollama.chat(
+
+            model="llama3.1:8b",
+
+            messages=[
+
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+
+            ]
+
+        )
+
+
+        return response["message"]["content"]
+
+
+
+    elif AI_PROVIDER == "groq":
+
+
+        response = groq_client.chat.completions.create(
+
+
+            model="llama-3.1-8b-instant",
+
+
+            messages=[
+
+                {
+                    "role": "system",
+                    "content": "Return only valid JSON"
+                },
+
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+
+            ]
+
+        )
+
+
+        return response.choices[0].message.content
+
+
+
+
+
+
+# ---------------- MAIN CHATBOT ----------------
+
+def chatbot(df, question):
+
+
+    # 1. Create schema
+
+    schema = get_schema(df)
+
+
+
+    # 2. Create planner prompt
+
+    intent_prompt = INTENT_PROMPT.format(
+
+        schema=json.dumps(
+            schema,
+            indent=2,
+            default=str
+        ),
+
+        question=question
+
     )
 
-    answer = response["message"]["content"]
 
-    # Show response in terminal
-    print("\n" + "=" * 80)
-    print("OLLAMA RESPONSE")
-    print("=" * 80)
-    print(answer)
 
-    return answer
+    # 3. Ask AI for plan
+
+    plan_response = ask_ai(
+        intent_prompt
+    )
+
+
+
+    # 4. Extract JSON
+
+    try:
+
+        clean_response = (
+
+            plan_response
+            .replace("```json", "")
+            .replace("```", "")
+            .strip()
+
+        )
+
+
+        start = clean_response.find("{")
+
+        end = clean_response.rfind("}") + 1
+
+
+        plan = json.loads(
+
+            clean_response[start:end]
+
+        )
+
+
+    except Exception:
+
+
+        return (
+            "I could not understand the question."
+        )
+
+
+
+    # 5. Execute pandas operation
+
+    result = execute_plan(
+
+        df,
+
+        plan
+
+    )
+
+
+
+    # 6. No data found
+
+    if not result["success"]:
+
+        return (
+            "I couldn't find an answer "
+            "to that question in the uploaded dataset."
+        )
+
+
+
+    data = result["result"]
+
+
+
+    # ---------------- FORMAT RESPONSE ----------------
+
+
+
+    # Columns answer
+
+    if isinstance(data, dict):
+
+
+        if "total_columns" in data:
+
+
+            return (
+
+                f"The dataset contains "
+                f"{data['total_columns']} columns.\n\n"
+
+                "Columns:\n"
+
+                + ", ".join(
+                    data["columns"]
+                )
+
+            )
+
+
+
+        # Summary answer only when user asks summary
+
+        if "mean" in data:
+
+
+            return (
+
+                "Here is the dataset summary:\n\n"
+
+                f"Total: ₹ {data['sum']:,.0f}\n"
+
+                f"Average: ₹ {data['mean']:,.0f}\n"
+
+                f"Minimum: ₹ {data['min']:,.0f}\n"
+
+                f"Maximum: ₹ {data['max']:,.0f}\n"
+
+                f"Records: {data['count']}"
+
+            )
+
+
+
+    # List result
+
+    if isinstance(data, list):
+
+
+        if len(data) == 0:
+
+            return (
+                "Nothing to show."
+            )
+
+
+        answer_prompt = f"""
+
+You are a data analyst.
+
+User question:
+{question}
+
+
+Dataset result:
+
+{json.dumps(data, indent=2, default=str)}
+
+
+Rules:
+
+- Answer only from the dataset result.
+- Do not use outside knowledge.
+- Do not summarize unrelated information.
+- If the result does not answer the question, say:
+
+"I couldn't find an answer to that question in the uploaded dataset."
+
+Give a short plain English answer.
+
+"""
+
+
+        return ask_ai(answer_prompt)
+
+
+
+
+    return str(data)
