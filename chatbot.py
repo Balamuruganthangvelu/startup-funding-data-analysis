@@ -1,6 +1,6 @@
 import os
 import json
-import ollama
+
 
 from groq import Groq
 from dotenv import load_dotenv
@@ -11,10 +11,9 @@ from executor import execute_plan
 
 load_dotenv()
 
-
 AI_PROVIDER = os.getenv(
     "AI_PROVIDER",
-    "ollama"
+    "groq"
 )
 
 
@@ -63,32 +62,7 @@ def get_schema(df):
 # ---------------- ASK AI ----------------
 
 def ask_ai(prompt):
-
-
-    if AI_PROVIDER == "ollama":
-
-
-        response = ollama.chat(
-
-            model="llama3.1:8b",
-
-            messages=[
-
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-
-            ]
-
-        )
-
-
-        return response["message"]["content"]
-
-
-
-    elif AI_PROVIDER == "groq":
+    if AI_PROVIDER == "groq":
 
 
         response = groq_client.chat.completions.create(
