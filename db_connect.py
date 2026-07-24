@@ -2,7 +2,7 @@ import psycopg2
 def get_connection():
     try:
         connection = psycopg2.connect(
-            host="localhost",
+            host=os.getenv("DB_HOST"),
             database="startup_funding",
             user="postgres",
             password="*******"
