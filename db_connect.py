@@ -25,21 +25,8 @@ def get_connection():
 
         return connection
 
-    except psycopg2.Error as e:
+    except Exception as e:
 
-        print(f"Error connecting to the database: {e}")
+        print("DATABASE ERROR:", e)
 
         return None
-
-
-if __name__ == "__main__":
-
-    conn = get_connection()
-
-    if conn:
-
-        print("Database connection is working!")
-
-        conn.close()
-
-        print("Connection closed.")

@@ -58,13 +58,16 @@ else:
 
     conn = get_connection()
 
+    if conn is None:
+        st.error("Database connection failed")
+        st.stop()
+
     df = pd.read_sql(
         "SELECT * FROM public.startup_funding_data;",
         conn
     )
 
     conn.close()
-
 
 
 # Remove duplicate columns
