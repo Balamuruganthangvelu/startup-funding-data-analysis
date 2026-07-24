@@ -5,7 +5,7 @@ def get_connection():
             host="localhost",
             database="startup_funding",
             user="postgres",
-            password="bala@321"
+            password="*******"
         )
         print("Connection established successfully")
         return connection
