@@ -51,34 +51,27 @@ if source == "Upload CSV":
         )
 
         st.stop()
-
-
-
 else:
+    try:
+        conn = get_connection()
 
-    conn = get_connection()
+        st.write("Connection object:", conn)
 
-    if conn is None:
-        st.error("Database connection failed")
+        df = pd.read_sql(
+            "SELECT * FROM public.startup_funding_data;",
+            conn
+        )
+
+        st.write("Rows:", len(df))
+        st.write("Columns:", df.columns.tolist())
+
+        conn.close()
+
+    except Exception as e:
+        st.error(f"Database error: {e}")
         st.stop()
-
-    df = pd.read_sql(
-        "SELECT * FROM public.startup_funding_data;",
-        conn
-    )
-
-    conn.close()
-
-
 # Remove duplicate columns
 
-df = df.loc[
-    :,
-    ~df.columns.duplicated()
-]
-
-
-# Remove duplicate columns
 df = df.loc[:, ~df.columns.duplicated()]
 
 
@@ -227,7 +220,7 @@ if "City" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 # ---------------- STARTUP ANALYSIS ----------------
 
-if "Startup" in filtered_df.columns and "Amount" in filtered_df.columns:
+if "Startup" in filtered_df.columns and "InvestmentAmount_USD" in filtered_df.columns:
 
     st.subheader("🏆 Top Funded Startups")
 
@@ -236,7 +229,7 @@ if "Startup" in filtered_df.columns and "Amount" in filtered_df.columns:
         filtered_df
         .groupby("Startup", as_index=False)
         .agg(
-            Total_Funding=("Amount","sum")
+            Total_Funding=("InvestmentAmount_USD","sum")
         )
         .sort_values(
             "Total_Funding",
@@ -419,3 +412,7 @@ if st.button("Ask AI"):
         st.markdown(
             answer
         )
+    answer = chatbot(
+    filtered_df,
+    question
+)
