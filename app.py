@@ -55,15 +55,14 @@ else:
     try:
         conn = get_connection()
 
-        st.write("Connection object:", conn)
+        
 
         df = pd.read_sql(
             "SELECT * FROM public.startup_funding_data;",
             conn
         )
 
-        st.write("Rows:", len(df))
-        st.write("Columns:", df.columns.tolist())
+    
 
         conn.close()
 
