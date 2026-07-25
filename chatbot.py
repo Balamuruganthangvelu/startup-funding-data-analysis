@@ -1,93 +1,118 @@
-import pandas as pd
+import streamlit as st
 from groq import Groq
-import os
-from dotenv import load_dotenv
-from intent import detect_intent
-from data_analyzer import analyze
 
-load_dotenv()
+
+# ---------------- GROQ CLIENT ----------------
 
 client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
+    api_key=st.secrets["GROQ_API_KEY"]
 )
 
 
+# ---------------- CHATBOT FUNCTION ----------------
+
 def chatbot(df, question):
 
-    question_lower = question.lower()
-
-
-    # ---------------- GENERAL KNOWLEDGE QUESTIONS ----------------
-
-    general_questions = [
-        "what is startup funding",
-        "explain startup funding",
-        "what is venture capital",
-        "what is investor",
-        "what is startup"
-    ]
-
-
-    if any(q in question_lower for q in general_questions):
-
-        prompt = f"""
-        Answer this question in a simple way:
-
-        Question:
-        {question}
-
-        Explain for a beginner.
-        """
-
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
-
-        return response.choices[0].message.content
-
-
-
-    # ---------------- DATASET ANALYSIS ----------------
-
-
+    # Check data
     if df is None or df.empty:
-        return "No data available."
+        return "No data available for analysis."
 
-    intent = detect_intent(question)
 
-    if intent != "llm":
-        result = analyze(df, intent)
+    # Dataset information
+    columns = list(df.columns)
 
-        if result is None:
-            return "No data available."
-        prompt = f"""
-        You are an AI assistant for a startup funding dashboard.
-        Convert the following analysis result into a natural answer.
-        
-        Result:
-        {result}
-        
-        Rules:
-        - Answer directly.
-        - Do not generate SQL.
-        - Do not generate Python.
-        - Do not explain your reasoning.
-        """
+    rows = len(df)
+
+
+    # Create dataset summary
+
+    try:
+        statistics = df.describe(
+            include="all"
+        ).to_string()
+
+    except Exception:
+        statistics = "Statistics not available"
+
+
+    sample = df.head(5).to_string()
+
+
+
+    context = f"""
+
+You are an expert data analyst.
+
+Analyze only the given dataset.
+
+Dataset Information:
+
+Number of rows:
+{rows}
+
+
+Columns:
+{columns}
+
+
+Statistical Summary:
+
+{statistics}
+
+
+Sample Records:
+
+{sample}
+
+
+"""
+
+
+
+    prompt = f"""
+
+{context}
+
+
+User Question:
+
+{question}
+
+
+Instructions:
+
+- Answer based only on the dataset.
+- If calculation is required, explain the calculation.
+- Provide clear business insights.
+- Do not say you cannot access the data.
+- If the answer is not available in the dataset, say:
+  "This information is not available in the dataset."
+
+
+"""
+
+
+    try:
 
         response = client.chat.completions.create(
+
             model="llama-3.1-8b-instant",
+
             messages=[
                 {
                     "role": "user",
                     "content": prompt
                 }
-            ]
+            ],
+
+            temperature=0.2
         )
+
+
         return response.choices[0].message.content
-    return "No data available."
+
+
+
+    except Exception as e:
+
+        return f"AI Error: {e}"

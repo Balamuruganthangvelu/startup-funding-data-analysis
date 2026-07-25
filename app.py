@@ -367,11 +367,20 @@ st.download_button(
 st.header("🤖 AI Startup Funding Assistant")
 
 
-question = st.chat_input("Ask anything about the startup funding data...")
+question = st.chat_input(
+    "Ask anything about the startup funding data..."
+)
+
 
 if question:
+
     with st.spinner("Analyzing data..."):
-        answer = chatbot(filtered_df, question)
+
+        answer = chatbot(
+            filtered_df,
+            question
+        )
 
     st.success("Analysis Complete")
+
     st.markdown(answer)
