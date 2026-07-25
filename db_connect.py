@@ -1,18 +1,32 @@
-import psycopg2
 import streamlit as st
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
+
+@st.cache_resource
 def get_connection():
     try:
-        conn = psycopg2.connect(
-            host=st.secrets["DB_HOST"],
-            port=st.secrets["DB_PORT"],
-            database=st.secrets["DB_NAME"],
-            user=st.secrets["DB_USER"],
-            password=st.secrets["DB_PASSWORD"]
+        engine = create_engine(
+            f"postgresql+psycopg2://"
+            f"{st.secrets['DB_USER']}:"
+            f"{st.secrets['DB_PASSWORD']}@"
+            f"{st.secrets['DB_HOST']}:"
+            f"{st.secrets['DB_PORT']}/"
+            f"{st.secrets['DB_NAME']}"
+            f"?sslmode=require",
+            pool_pre_ping=True
         )
 
-        return conn
+        # Test database connection
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+
+        return engine
+
+    except SQLAlchemyError as e:
+        st.error(f"Database connection error: {e}")
+        return None
 
     except Exception as e:
-        print("DATABASE ERROR:", e)
+        st.error(f"Unexpected error: {e}")
         return None

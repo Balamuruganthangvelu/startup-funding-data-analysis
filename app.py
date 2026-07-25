@@ -19,13 +19,11 @@ st.title("🚀 Startup Funding Analysis Dashboard")
 
 st.sidebar.header("📂 Dataset Source")
 
-
-
 source = st.sidebar.radio(
     "Choose Dataset",
     [
         "Upload CSV",
-        "PostgreSQL"
+        "sample dataset"
     ]
 )
 
@@ -37,38 +35,33 @@ if source == "Upload CSV":
         type=["csv"]
     )
 
-
     if uploaded_file:
-
-        df = pd.read_csv(
-            uploaded_file
-        )
+        df = pd.read_csv(uploaded_file)
 
     else:
-
-        st.warning(
-            "Please upload a CSV file"
-        )
-
+        st.warning("Please upload a CSV file")
         st.stop()
-else:
-    try:
-        conn = get_connection()
 
-        
+
+else:
+
+    try:
+        engine = get_connection()
+
+        if engine is None:
+            st.error("Database connection failed")
+            st.stop()
 
         df = pd.read_sql(
             "SELECT * FROM public.startup_funding_data;",
-            conn
+            engine
         )
-
-    
-
-        conn.close()
 
     except Exception as e:
         st.error(f"Database error: {e}")
         st.stop()
+
+
 # Remove duplicate columns
 
 df = df.loc[:, ~df.columns.duplicated()]
@@ -78,7 +71,6 @@ df = df.loc[:, ~df.columns.duplicated()]
 
 with st.expander("📋 View Dataset"):
     st.dataframe(df)
-
 
 # ---------------- FILTERS ----------------
 
@@ -127,25 +119,25 @@ with col2:
 
 
 with col3:
-    if "Amount" in filtered_df.columns:
+    if "InvestmentAmount_USD" in filtered_df.columns:
         st.metric(
             "Total Funding",
-            f"₹ {filtered_df['Amount'].sum():,.0f}"
+            f"$ {filtered_df['InvestmentAmount_USD'].sum():,.0f}"
         )
 
 
 with col4:
-    if "Amount" in filtered_df.columns:
+    if "InvestmentAmount_USD" in filtered_df.columns:
         st.metric(
             "Average Funding",
-            f"₹ {filtered_df['Amount'].mean():,.0f}"
+            f"$ {filtered_df['InvestmentAmount_USD'].mean():,.0f}"
         )
 
 
 
 # ---------------- INDUSTRY ANALYSIS ----------------
 
-if "Industry" in filtered_df.columns and "Amount" in filtered_df.columns:
+if "Industry" in filtered_df.columns and "InvestmentAmount_USD" in filtered_df.columns:
 
     st.subheader("💰 Funding by Industry")
 
@@ -154,7 +146,7 @@ if "Industry" in filtered_df.columns and "Amount" in filtered_df.columns:
         filtered_df
         .groupby("Industry", as_index=False)
         .agg(
-            Total_Funding=("Amount","sum")
+            Total_Funding=("InvestmentAmount_USD","sum")
         )
         .sort_values(
             "Total_Funding",
@@ -182,7 +174,7 @@ if "Industry" in filtered_df.columns and "Amount" in filtered_df.columns:
 
 # ---------------- CITY ANALYSIS ----------------
 
-if "City" in filtered_df.columns and "Amount" in filtered_df.columns:
+if "City" in filtered_df.columns and "InvestmentAmount_USD" in filtered_df.columns:
 
     st.subheader("🏙️ Funding by City")
 
@@ -191,7 +183,7 @@ if "City" in filtered_df.columns and "Amount" in filtered_df.columns:
         filtered_df
         .groupby("City", as_index=False)
         .agg(
-            Total_Funding=("Amount","sum")
+            Total_Funding=("InvestmentAmount_USD","sum")
         )
         .sort_values(
             "Total_Funding",

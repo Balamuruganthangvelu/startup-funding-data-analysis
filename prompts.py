@@ -192,6 +192,8 @@ Instructions:
 - Do not show JSON.
 - Do not show code.
 - Do not show execution plans.
+- Do NOT mention SQL, pandas, Python, calculations, analysis steps, or internal reasoning.
+  Only provide the final answer.
 - Do not mention Pandas.
 - Explain the result in simple English.
 - Include numbers and names from the result

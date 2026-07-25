@@ -2,6 +2,8 @@ import pandas as pd
 from groq import Groq
 import os
 from dotenv import load_dotenv
+from intent import detect_intent
+from data_analyzer import analyze
 
 load_dotenv()
 
@@ -57,53 +59,35 @@ def chatbot(df, question):
     if df is None or df.empty:
         return "No data available."
 
+    intent = detect_intent(question)
 
-    data_summary = f"""
+    if intent != "llm":
+        result = analyze(df, intent)
 
-    Dataset columns:
-    {list(df.columns)}
+        if result is None:
+            return "No data available."
+        prompt = f"""
+        You are an AI assistant for a startup funding dashboard.
+        Convert the following analysis result into a natural answer.
+        
+        Result:
+        {result}
+        
+        Rules:
+        - Answer directly.
+        - Do not generate SQL.
+        - Do not generate Python.
+        - Do not explain your reasoning.
+        """
 
-    Total records:
-    {len(df)}
-
-    Sample data:
-    {df.head(5).to_string()}
-
-    """
-
-
-    prompt = f"""
-
-    You are a startup funding data analyst.
-
-    Use only the dataset information below.
-
-    {data_summary}
-
-
-    User question:
-    {question}
-
-
-    Give a clear answer.
-    If the answer is not available in the dataset,
-    say "No data available".
-
-    """
-
-
-    response = client.chat.completions.create(
-
-        model="llama-3.1-8b-instant",
-
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-
-    )
-
-
-    return response.choices[0].message.content
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+        return response.choices[0].message.content
+    return "No data available."
