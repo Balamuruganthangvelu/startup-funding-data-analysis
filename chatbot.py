@@ -40,58 +40,38 @@ def chatbot(df, question):
 
 
     context = f"""
-
-You are an expert data analyst.
-
-Analyze only the given dataset.
-
-Dataset Information:
-
-Number of rows:
-{rows}
-
-
-Columns:
-{columns}
-
-
-Statistical Summary:
-
-{statistics}
-
-
-Sample Records:
-
-{sample}
-
-
+    You are an expert data analyst.
+    Analyze only the given dataset.
+    Dataset Information:
+    Number of rows:
+    {rows}
+    Columns:
+    {columns}
+    
+    Statistical Summary:
+    {statistics}
+    
+    Sample Records:
+    {sample}
 """
-
-
-
     prompt = f"""
-
-{context}
-
-
-User Question:
-
-{question}
-
-
-Instructions:
-
-- Answer based only on the dataset.
-- If calculation is required, explain the calculation.
-- Provide clear business insights.
-- Do not say you cannot access the data.
-- If the answer is not available in the dataset, say:
-  "This information is not available in the dataset."
-
-
+    You are a startup funding data analyst.
+    You have a dataset with this information:
+    {context}
+    
+    Answer the user's question directly.
+    Rules:
+    - Do NOT write Python code.
+    - Do NOT show SQL queries.
+    - Do NOT create a dataframe.
+    - Do NOT explain programming steps.
+    - Give only the final business answer.
+    - Include numbers and insights from the dataset.
+    - Use simple sentences.
+    
+    User Question:
+    {question}
 """
-
-
     try:
 
         response = client.chat.completions.create(
