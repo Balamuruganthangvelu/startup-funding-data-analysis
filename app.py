@@ -373,45 +373,13 @@ st.download_button(
 # ---------------- AI CHATBOT ----------------
 
 st.header("🤖 AI Startup Funding Assistant")
-st.info(
-    f"AI is analyzing {source} data"
-)
 
 
-question = st.text_input(
-    "Ask anything about the startup funding data..."
-)
+question = st.chat_input("Ask anything about the startup funding data...")
 
+if question:
+    with st.spinner("Analyzing data..."):
+        answer = chatbot(filtered_df, question)
 
-if st.button("Ask AI"):
-
-    if question.strip() == "":
-
-        st.warning(
-            "Please enter a question."
-        )
-
-    else:
-
-        with st.spinner(
-            "Analyzing data..."
-        ):
-
-            answer = chatbot(
-                filtered_df,
-                question
-            )
-
-
-        st.success(
-            "Analysis Complete"
-        )
-
-
-        st.markdown(
-            answer
-        )
-    answer = chatbot(
-    filtered_df,
-    question
-)
+    st.success("Analysis Complete")
+    st.markdown(answer)
